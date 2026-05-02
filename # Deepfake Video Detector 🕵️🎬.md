@@ -1,53 +1,61 @@
-# Deepfake Video Detector 🕵️🎬
+Deepfake Video Detector 🕵️🎬
+A real-time Deepfake Video Detection system built using PyTorch, OpenCV, and Streamlit. This project features frame-wise detection, annotated video output, and a unique horror-themed interactive UI.
 
-A real-time Deepfake Video Detection system built using **PyTorch**, **OpenCV**, and **Streamlit**, featuring frame-wise detection, annotated video output, and interactive UI effects.
+🚀 Live Demo
+You can try the live version of the Deepfake Video Detector here:
+👉 https://deepfake-video-detector-rs.streamlit.app/
+(Note: The app might take a few seconds to wake up if it hasn't been used recently.)
 
----
+🔹 Features
+Video Support: Upload any video in MP4/AVI/MOV formats.
 
-## 🔹 Features
+AI Analysis: Frame-wise Real vs Fake detection using a ResNet50 backbone.
 
-- Upload any video in **MP4/AVI/MOV** formats.
-- **Frame-wise Real vs Fake detection** with confidence scores.
-- **Annotated video output** with labels.
-- **Live Pie Chart** showing frame-wise Real/Fake/Uncertain distribution.
-- **Evil Eyes Horror UI animation** for an engaging interface.
-- **Dark Theme Professional UI**.
-- Confidence threshold slider for filtering uncertain frames.
-- GPU acceleration supported (CUDA if available).
+Visual Insights: Live Pie Chart showing Real/Fake/Uncertain distribution during processing.
 
----
+Annotated Output: Generates a downloadable video with labels and confidence scores.
 
-## 🛠️ Technologies Used
+Interactive UI: Features "Evil Eyes" horror animations and a sleek Dark Theme.
 
-- **Python 3.10+**
-- **Streamlit** for web interface
-- **PyTorch** for deep learning model
-- **Torchvision** for pretrained ResNet50 backbone
-- **OpenCV** for video processing
-- **Matplotlib** for live pie charts
-- **Streamlit Option Menu** for navigation
-- HTML & CSS for custom UI animations
+Customizable: Confidence threshold slider to fine-tune detection sensitivity.
 
----
+🛠️ Technologies Used
+Python 3.11
 
-## 📁 File Structure
+PyTorch & torchvision (Deep Learning Framework)
 
+Streamlit (Web Interface)
 
----
+OpenCV (Video Processing)
 
-## ⚡ How to Run
+Matplotlib (Data Visualization)
 
-1. **Clone the repository**:
+CSS/HTML (Custom UI Animations)
 
-```bash
-git clone https://github.com/Gauravsharma-eng/deepfake-detector.git
-cd deepfake-detector
+📁 File Structure
+Plaintext
+.
+├── checkpoints/
+│   └── model_best.pth       # Pre-trained AI model (89.9 MB)
+├── outputs/                 # Directory for processed videos
+├── detector.py              # Main Streamlit application code
+├── requirements.txt         # Python dependencies
+├── packages.txt             # System-level dependencies (libgl1)
+└── README.md                # Project documentation
+⚡ How to Run Locally
+Clone the repository:
 
+Bash
+git clone [https://github.com/Gauravsharma-eng/Deepfake-Video-Detector.git](https://github.com/Gauravsharma-eng/Deepfake-Video-Detector.git)
+cd Deepfake-Video-Detector
+Install dependencies:
+
+Bash
 pip install -r requirements.txt
+Run the app:
 
-streamlit run app.py
-
-
-
+Bash
+streamlit run detector.py
 👤 Author
-Gaurav Sharma 
+Gaurav Sharma
+Final Year B.Tech Student at VITM, Gwalior
