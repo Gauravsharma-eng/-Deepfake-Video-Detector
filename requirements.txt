@@ -1,7 +1,8 @@
 torch
 torchvision
 opencv-python-headless
-streamlit
+streamlit-option-menu
+matplotlib
 Pillow
 numpy
 plotly
