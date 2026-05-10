@@ -9,6 +9,7 @@ import numpy as np
 import tempfile
 import os
 import time
+import yt_dlp
 from streamlit_option_menu import option_menu
 import matplotlib.pyplot as plt
 
@@ -139,14 +140,49 @@ elif selected == "🕵️ Detection Tool":
 
     model = load_model()
 
-    uploaded_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
-    confidence_threshold = st.slider("Confidence threshold", 0.0, 1.0, 0.5)
+# ---------------- VIDEO INPUT OPTION ----------------
+
+input_option = st.radio(
+    "Choose Video Input Method",
+    ["Upload Video", "Paste Video URL"]
+)
+
+video_path = None
+
+# Upload Video
+if input_option == "Upload Video":
+
+    uploaded_file = st.file_uploader(
+        "Upload a video",
+        type=["mp4", "avi", "mov"]
+    )
 
     if uploaded_file is not None:
+
         tfile = tempfile.NamedTemporaryFile(delete=False)
         tfile.write(uploaded_file.read())
+
         video_path = tfile.name
 
+# Paste Video URL
+else:
+
+    video_url = st.text_input(
+        "Paste Video URL"
+    )
+
+    if video_url:
+
+        video_path = video_url
+
+confidence_threshold = st.slider(
+    "Confidence threshold",
+    0.0,
+    1.0,
+    0.5
+)
+
+if video_path:
         output_dir = "outputs"
         os.makedirs(output_dir, exist_ok=True)
 
@@ -195,7 +231,7 @@ elif selected == "🕵️ Detection Tool":
                 fake_count = labels_filtered.count("Fake")
                 uncertain_count = len(labels) - len(labels_filtered)
 
-                fig, ax = plt.subplots(figsize=(6, 4))
+                fig, ax = plt.subplots()
                 if real_count + fake_count + uncertain_count > 0:
                     ax.pie([real_count, fake_count, uncertain_count],
                            labels=["Real","Fake","Uncertain"],
@@ -237,6 +273,6 @@ elif selected == "ℹ️ Features":
     - Annotated video output with labels
     - Live Pie Chart update while processing
     - Evil Eyes Horror UI effect
-    - Dark Theme Professional UI
+    - Dark Theme Professional UI-gs 
     """)
     st.info("Made by Gaurav Sharma & Team") 
