@@ -1,1 +1,18 @@
-.streamlit/config.toml
+[theme]
+base = "dark"
+primaryColor = "#ff0040"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#161b22"
+textColor = "#f5f5f5"
+
+[server]
+maxUploadSize = 50            # MB, detector.py ke MAX_UPLOAD_MB ke barabar rakho
+enableXsrfProtection = true
+enableCORS = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = "none"     # users ko tracebacks nahi dikhte (logs mein milte hain)
+toolbarMode = "viewer"        # public viewers ko developer menu nahi dikhta
