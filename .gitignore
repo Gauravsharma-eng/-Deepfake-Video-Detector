@@ -1,0 +1,17 @@
+# Secrets
+.streamlit/secrets.toml
+.env
+*.pem
+*.key
+ 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+ 
+# Generated outputs
+outputs/
+annotated_*.mp4
+*.csv
+ 
