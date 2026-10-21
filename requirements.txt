@@ -1,6 +1,6 @@
 torch
 torchvision
-opencv-python-headless
+opencv-python-headless<5
 streamlit-option-menu
 matplotlib
 Pillow
