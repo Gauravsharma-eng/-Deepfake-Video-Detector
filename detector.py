@@ -106,7 +106,12 @@ def load_detector(device):
 
 @st.cache_resource
 def get_face_cascade():
-    return cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    # OpenCV 5 moved CascadeClassifier to contrib, so it can be missing -> return None (fallback: full frame)
+    try:
+        cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        return None if cascade.empty() else cascade
+    except Exception:
+        return None
 
 
 # ======================================================================
@@ -114,6 +119,8 @@ def get_face_cascade():
 # ======================================================================
 def detect_face(bgr, cascade, margin=0.25):
     """Largest face box (x0, y0, x1, y1) with margin, or None."""
+    if cascade is None:
+        return None
     h, w = bgr.shape[:2]
     scale = 640.0 / max(h, w) if max(h, w) > 640 else 1.0
     small = cv2.resize(bgr, None, fx=scale, fy=scale) if scale < 1 else bgr
@@ -370,6 +377,9 @@ elif selected == "🕵️ Detection Tool":
     st.caption(f"Running on: {device.upper()}")
     model = load_detector(device)
     cascade = get_face_cascade()
+    if cascade is None:
+        st.warning("Face detector is unavailable in this environment (OpenCV 5?). "
+                   "The full frame will be analysed. Pin `opencv-python-headless<5` in requirements.txt to enable it.")
 
     in_col, set_col = st.columns(2)
     with in_col:
