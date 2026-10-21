@@ -1,6 +1,6 @@
 torch>=2.2,<3
 torchvision>=0.17,<1
-opencv-python-headless>=4.9,<5
+opencv-python-headless>=5.0.0.93,<6
 streamlit-option-menu>=0.3.12,<1
 matplotlib>=3.8,<4
 Pillow>=10
