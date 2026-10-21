@@ -1,6 +1,10 @@
+import ipaddress
+import logging
 import os
 import shutil
+import socket
 import tempfile
+from urllib.parse import urlparse
 
 import cv2
 import matplotlib.pyplot as plt
@@ -21,6 +25,17 @@ st.set_page_config(
     page_icon="🛡️",
     layout="wide",
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("deepguard")
+
+# ---- Security settings ----
+ENABLE_URL_INPUT = True  # False = URL feature poori tarah band (sabse safe for public demo)
+ALLOWED_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
+MAX_UPLOAD_MB = 50  # config.toml ke server.maxUploadSize ke saath match rakho
+MAX_URL_VIDEO_SECONDS = 300  # URL video ki max length
+MAX_RESOLUTION_PIXELS = 3840 * 2160  # isse bade frames reject (memory abuse se bachav)
+ALLOWED_EXTENSIONS = {".mp4", ".avi", ".mov"}
 
 MODEL_PATH = "checkpoints/model_best.pth"
 DEFAULT_FAKE_IDX = 0  # training ka class_to_idx dekh ke set karo (ImageFolder: fake=0, real=1)
@@ -66,7 +81,8 @@ class DeepfakeDetector(nn.Module):
         return self.model(x)
 
     def load_model(self, path, device="cpu"):
-        self.model.load_state_dict(torch.load(path, map_location=device))
+        # weights_only=True: pickle se arbitrary code execution ka risk band
+        self.model.load_state_dict(torch.load(path, map_location=device, weights_only=True))
         self.model.to(device)
         self.model.eval()
 
@@ -142,9 +158,27 @@ def overlay_cam(rgb, cam):
     return cv2.addWeighted(rgb224, 0.55, heat, 0.45, 0)
 
 
+def is_safe_url(url):
+    """Only http(s) + allowlisted hosts, and host must not resolve to a private/internal IP (SSRF guard)."""
+    try:
+        p = urlparse(url)
+        if p.scheme not in ("http", "https") or not p.hostname:
+            return False
+        if p.hostname.lower() not in ALLOWED_HOSTS:
+            return False
+        for info in socket.getaddrinfo(p.hostname, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def download_video(url):
-    """Download from YouTube / direct links using yt-dlp. Returns (file_path, temp_dir)."""
+    """Download a YouTube video with strict limits. Returns (file_path, temp_dir)."""
     import yt_dlp
+    from yt_dlp.utils import match_filter_func
 
     tmp_dir = tempfile.mkdtemp()
     opts = {
@@ -153,13 +187,22 @@ def download_video(url):
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
+        "allowed_extractors": ["youtube"],  # generic extractor (arbitrary URLs) blocked
+        "max_filesize": MAX_UPLOAD_MB * 1024 * 1024,
+        "socket_timeout": 15,
+        "retries": 1,
+        "match_filter": match_filter_func(f"duration <= {MAX_URL_VIDEO_SECONDS} & !is_live"),
     }
-    with yt_dlp.YoutubeDL(opts) as ydl:
-        ydl.download([url])
-    files = os.listdir(tmp_dir)
-    if not files:
-        raise RuntimeError("Video download failed.")
-    return os.path.join(tmp_dir, files[0]), tmp_dir
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+        files = os.listdir(tmp_dir)
+        if not files:
+            raise RuntimeError("Video download failed or video exceeds the allowed limits.")
+        return os.path.join(tmp_dir, files[0]), tmp_dir
+    except Exception:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
 
 
 def label_for(p_fake, thr):
@@ -384,13 +427,16 @@ elif selected == "🕵️ Detection Tool":
     in_col, set_col = st.columns(2)
     with in_col:
         st.markdown("##### 🎞️ Video input")
-        input_option = st.radio("Input method", ["Upload Video", "Paste Video URL"], horizontal=True,
+        input_options = ["Upload Video", "Paste YouTube URL"] if ENABLE_URL_INPUT else ["Upload Video"]
+        input_option = st.radio("Input method", input_options, horizontal=True,
                                 label_visibility="collapsed")
         uploaded_file, video_url = None, ""
         if input_option == "Upload Video":
-            uploaded_file = st.file_uploader("Upload a video", type=["mp4", "avi", "mov"])
+            uploaded_file = st.file_uploader(f"Upload a video (max {MAX_UPLOAD_MB} MB)",
+                                             type=["mp4", "avi", "mov"])
         else:
-            video_url = st.text_input("Video URL (YouTube / direct link)")
+            video_url = st.text_input(f"YouTube URL (max {MAX_URL_VIDEO_SECONDS // 60} minutes)", max_chars=200)
+        st.caption("🔒 Videos are processed temporarily and deleted afterwards. Nothing is stored.")
     with set_col:
         st.markdown("##### ⚙️ Detection settings")
         threshold = st.slider("Decision threshold", 0.5, 0.95, 0.7, 0.05,
@@ -414,19 +460,30 @@ elif selected == "🕵️ Detection Tool":
         video_path, cleanup_dir = None, None
         try:
             if uploaded_file is not None:
-                suffix = os.path.splitext(uploaded_file.name)[1] or ".mp4"
+                if uploaded_file.size > MAX_UPLOAD_MB * 1024 * 1024:
+                    raise ValueError("file_too_large")
+                suffix = os.path.splitext(uploaded_file.name)[1].lower()
+                if suffix not in ALLOWED_EXTENSIONS:
+                    suffix = ".mp4"
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                 tfile.write(uploaded_file.read())
                 tfile.close()
-                video_path, video_name = tfile.name, uploaded_file.name
+                video_path = tfile.name
+                video_name = os.path.basename(uploaded_file.name)[:100]
             else:
+                if not is_safe_url(video_url.strip()):
+                    raise ValueError("unsafe_url")
                 with st.spinner("⬇️ Downloading video..."):
                     video_path, cleanup_dir = download_video(video_url.strip())
-                video_name = video_url.strip()
+                video_name = video_url.strip()[:100]
 
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
                 st.error("❌ Could not open the video file.")
+            elif (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) * int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                  > MAX_RESOLUTION_PIXELS):
+                cap.release()
+                st.error("❌ Video resolution is too high. Please use a video up to 4K.")
             else:
                 fps = cap.get(cv2.CAP_PROP_FPS) or 25
                 total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -508,8 +565,17 @@ elif selected == "🕵️ Detection Tool":
                         "meta": {"name": video_name, "sample_every": sample_every,
                                  "face_crop": use_face, "grad_cam": use_cam},
                     }
-        except Exception as e:
-            st.error(f"❌ Something went wrong: {e}")
+        except ValueError as e:
+            if str(e) == "unsafe_url":
+                st.error("❌ Only YouTube links are supported (youtube.com / youtu.be).")
+            elif str(e) == "file_too_large":
+                st.error(f"❌ File is too large. Maximum size is {MAX_UPLOAD_MB} MB.")
+            else:
+                logger.exception("Value error while processing video")
+                st.error("❌ Could not process this video.")
+        except Exception:
+            logger.exception("Unexpected error while processing video")
+            st.error("❌ Could not process this video. Please try another file.")
         finally:
             if video_path and uploaded_file is not None and os.path.exists(video_path):
                 os.remove(video_path)
